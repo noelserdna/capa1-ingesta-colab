@@ -7,6 +7,7 @@ Serie de cuadernos de Google Colab para aprender, desde cero, la **capa de inges
 | # | Cuaderno | Abrir en Colab |
 |---|----------|----------------|
 | 0 | Fundamentos y setup | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/noelserdna/capa1-ingesta-colab/blob/main/00_fundamentos_setup.ipynb) |
+| 1 | Ingesta batch: API pública → BigQuery | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/noelserdna/capa1-ingesta-colab/blob/main/01_batch_api_a_bigquery.ipynb) |
 
 ## Qué cubre el Notebook 0
 
