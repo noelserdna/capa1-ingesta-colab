@@ -1,0 +1,19 @@
+# Jupyter / Colab
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Credenciales — nunca subir
+*.json.key
+service-account*.json
+.env
+*.pem
+
+# OS
+.DS_Store
