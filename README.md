@@ -21,6 +21,20 @@ Serie de cuadernos de Google Colab para aprender, desde cero, la **capa de inges
 
 **Tiempo estimado:** 60-90 min.
 
+## Qué cubre el Notebook 1
+
+Tu **primera ingesta de datos real**: traer información de una fuente externa y dejarla en BigQuery, lista para que una IA razone sobre ella.
+
+- Qué es la **ingesta batch** (por lotes) y cuándo es el modo adecuado.
+- Llamar a una **API pública** (clima, sin clave) y entender su respuesta JSON.
+- Qué es la **paginación** y cómo recorrer datos página a página.
+- **Transformar** datos crudos a un **esquema canónico** limpio con pandas.
+- Escribir en BigQuery con **MERGE** para una ingesta **idempotente** (ejecutarla dos veces no duplica).
+- Hacer ingesta **incremental** (traer solo lo nuevo).
+- Desplegar en producción con un **prompt para Claude Code + gcloud**.
+
+**Requisito:** Notebook 0 completado (entorno en verde). **Tiempo estimado:** ~60 min.
+
 ## Uso
 
 Abre cualquier cuaderno con su badge **Open in Colab** o clónalo:
