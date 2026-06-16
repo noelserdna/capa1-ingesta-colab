@@ -6,8 +6,20 @@ Serie de cuadernos de Google Colab para aprender, desde cero, la **capa de inges
 
 | # | Cuaderno | Abrir en Colab |
 |---|----------|----------------|
+| 0.0 | Panorama de la Capa 1 (clase de 90 min: las 7 tecnologías de ingesta) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/noelserdna/capa1-ingesta-colab/blob/main/00_0_panorama_capa1_ingesta.ipynb) |
 | 0 | Fundamentos y setup | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/noelserdna/capa1-ingesta-colab/blob/main/00_fundamentos_setup.ipynb) |
 | 1 | Ingesta batch: API pública → BigQuery | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/noelserdna/capa1-ingesta-colab/blob/main/01_batch_api_a_bigquery.ipynb) |
+
+## Qué cubre el Notebook 0.0 (Panorama)
+
+Clase magistral de 90 min que da el **mapa de toda la Capa 1** antes de bajar al detalle práctico. Caso conductor **InnovaCo**, stack didáctico Notion + Google Workspace + Telegram + Neon Postgres.
+
+- Los **4 modos de ingesta**: batch, streaming, CDC y event-driven.
+- Las **7 tecnologías** y cuándo usar (y no usar) cada una: **Application Integration**, **Workflows**, **Pub/Sub**, **Eventarc**, **Datastream**, **Storage Transfer Service** y **Cortex Framework**.
+- Patrón de trabajo AI-first: *arquitectura → prompt → LLM genera YAML/código → revisión → `gcloud`*.
+- Por bloque: concepto, anatomía, prompt de ejemplo, YAML/código generado, comandos `gcloud`, trampas y ejercicio mental.
+- Trampas transversales, biblioteca de prompts reutilizables y guía de setup del stack en 30 min.
+- Incluye celdas Python ejecutables (mapa mental, recomendador de tecnología, plantilla de prompts) que corren sin ningún setup.
 
 ## Qué cubre el Notebook 0
 
