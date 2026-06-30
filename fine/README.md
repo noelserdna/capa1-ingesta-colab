@@ -40,7 +40,8 @@ fine/
 │   ├── dataset_train.jsonl   # 1.080 (entrenamiento)
 │   └── dataset_val.jsonl     # 120 (validación)
 ├── notebooks/
-│   └── finetune_gemma4_reservas.ipynb   # Colab: instalar→cargar→entrenar→PROBAR→guardar
+│   ├── finetune_gemma4_reservas.ipynb   # Colab: instalar→cargar→entrenar→PROBAR→guardar
+│   └── probar_modelo_reservas.ipynb     # Colab: cargar adapter + chat interactivo con backend_sim
 ├── deploy/                   # FUTURO (servidor con Ollama)
 │   ├── Modelfile
 │   ├── system_prompt.txt
@@ -70,6 +71,12 @@ y ejecuta las celdas en orden. El notebook:
 3. entrena (~30-45 min),
 4. **prueba el modelo con el bucle de herramientas** usando `backend_sim`,
 5. guarda el **adapter LoRA en tu Google Drive** (las sesiones de Colab se borran).
+
+### 2b. Probar el modelo entrenado — en Google Colab
+Abre `notebooks/probar_modelo_reservas.ipynb` (GPU T4), **sube tu `fine/adapter`
+comprimido** (`cd fine && zip -r adapter.zip adapter`) y tendrás un **chat
+interactivo**: el modelo conversa y, cuando necesita datos, llama de verdad a
+`backend_sim`. Incluye demos guiadas y un visor del estado del backend.
 
 ### 3. Desplegar — FUTURO
 Cuando montes tu servidor de 12 GB, exporta a GGUF (Paso 10 del notebook) y sigue
