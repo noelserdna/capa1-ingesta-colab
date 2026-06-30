@@ -104,8 +104,24 @@ Todo el contrato está en [`data/ESQUEMA.md`](data/ESQUEMA.md). En resumen:
 - **Plantilla de chat propia**: definimos una plantilla Jinja que entiende el rol
   `tool` (Gemma de serie solo tiene `user`/`model`).
 
-## ⚠️ A verificar en la primera ejecución
-Estas dos líneas se escribieron según la documentación de Unsloth para Gemma 4
-pero **no se han podido probar fuera de Colab**:
-1. el `model_name` exacto (`unsloth/gemma-4-E2B-it`),
-2. el export a GGUF de Gemma 4 (por eso va con `try/except` y plan B `merged_16bit`).
+## ✅ Resultados (probado en GPU real)
+
+El notebook se ejecutó **end-to-end en una T4** (vía el CLI de Colab):
+
+- `unsloth/gemma-4-E2B-it` **carga correctamente** (caveat del `model_name` resuelto).
+- Entrenamiento: **1 época · 135 pasos · ~30 min** · LoRA = **25,3M params (0,49%)**.
+- *Loss* por paso: **0.39 → ~0.007** (avg final 0.0516).
+- El adapter entrenado quedó en **`fine/adapter/`** (97 MB, 490 tensores LoRA, `r=16`).
+  Está en `.gitignore` (supera el límite de 100 MB de GitHub; usa **git-lfs** si lo
+  quieres versionar). Para reutilizarlo, ver la celda *"Reutilizar un adapter ya
+  guardado"* del notebook.
+
+### Lecciones / pendientes
+- **Ejecuta el notebook en el navegador**, no en modo *headless* por CLI: las sesiones
+  headless de Colab se desconectan a los ~15-40 min y perdíamos la VM. En navegador
+  el keep-alive aguanta y termina sin incidencias.
+- En Gemma 4 el `tokenizer` es un **`Gemma4Processor`**; las operaciones a nivel de
+  token (ids, decode) usan su tokenizer interno (`tok = getattr(tokenizer, "tokenizer", tokenizer)`).
+  Ya está aplicado en el notebook.
+- **Pendiente de probar:** el export a **GGUF** de Gemma 4 (va con `try/except` y plan
+  B `merged_16bit`).
