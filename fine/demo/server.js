@@ -69,11 +69,33 @@ function reservasPublicas(bk) {
 
 // ---- Cliente de Ollama + extracción de tool_call ----
 
+// Construye el prompt EXACTO del entrenamiento (misma plantilla que en Colab):
+// system dentro del primer turno de usuario, tool como turno de usuario, y el
+// modelo emite bloques ```tool_call. Así evitamos la plantilla nativa de Gemma.
+function construirPrompt(messages) {
+  const system = (messages.find((m) => m.role === "system") || {}).content || "";
+  let out = "";
+  let inyectado = false;
+  for (const m of messages) {
+    if (m.role === "system") continue;
+    if (m.role === "user" || m.role === "tool") {
+      out += "<start_of_turn>user\n";
+      if (system && !inyectado) { out += system + "\n\n"; inyectado = true; }
+      out += m.content + "<end_of_turn>\n";
+    } else if (m.role === "assistant") {
+      out += "<start_of_turn>model\n" + m.content + "<end_of_turn>\n";
+    }
+  }
+  return out + "<start_of_turn>model\n";
+}
+
 async function llamarModelo(messages) {
-  const body = { model: MODEL, messages, stream: false, options: { temperature: 0.3, top_p: 0.95 } };
+  // /api/generate con raw=true → usa nuestro prompt tal cual (formato de entrenamiento).
+  const body = { model: MODEL, prompt: construirPrompt(messages), raw: true, stream: false,
+                 options: { temperature: 0.3, top_p: 0.95, stop: ["<end_of_turn>"] } };
   let resp;
   try {
-    resp = await fetch(OLLAMA_URL + "/api/chat", {
+    resp = await fetch(OLLAMA_URL + "/api/generate", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
   } catch (e) {
@@ -84,7 +106,7 @@ async function llamarModelo(messages) {
     throw new Error(`Ollama respondió ${resp.status}: ${txt.slice(0, 300)}`);
   }
   const j = await resp.json();
-  return ((j.message && j.message.content) || "").trim();
+  return ((j.response) || "").trim();
 }
 
 function extraerToolCall(texto) {

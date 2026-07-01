@@ -21,6 +21,8 @@ demo/
 
 - **Node.js 18+** (usa `fetch` nativo).
 - **[Ollama](https://ollama.com)** corriendo en local (sirve el modelo por HTTP).
+  Para el **modelo fine-tuneado** necesitas **Ollama 0.30+** (el soporte de adapters
+  LoRA para Gemma 4 llegó en la 0.30; en versiones previas da `loras are not yet implemented`).
 
 ## 1. Prepara el modelo en Ollama
 
@@ -65,7 +67,9 @@ Ejemplo: `MODEL=gemma4:e2b PORT=8080 node server.js`
 ## Cómo funciona (el bucle de herramientas)
 
 1. El navegador manda tu mensaje a `POST /api/chat`.
-2. `server.js` añade el turno y llama a Ollama (`/api/chat`).
+2. `server.js` construye el prompt con **la misma plantilla del entrenamiento** y llama
+   a Ollama por `/api/generate` con `raw: true` (así el modelo emite `\`\`\`tool_call` y no
+   se mezcla con la plantilla nativa de Gemma).
 3. Si la respuesta trae un bloque ` ```tool_call `, el servidor lo parsea y ejecuta
    la función correspondiente de `backend_sim.js` (p. ej. `consultar_disponibilidad`).
 4. El resultado se devuelve al modelo como un turno más y se repite hasta que el
