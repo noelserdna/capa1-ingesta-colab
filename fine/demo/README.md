@@ -31,13 +31,14 @@ export MODEL=gemma4:e2b
 ```
 El base + el *system prompt* ya sigue bastante bien el protocolo de herramientas.
 
-**Opción B — usar TU modelo fine-tuneado** (lo suyo): necesitas el GGUF del adapter.
-1. Expórtalo a GGUF (Paso 10 del notebook de entrenamiento) y crea el modelo con el
-   `Modelfile` de `../deploy/`:
-   ```bash
-   ollama create reservas -f ../deploy/Modelfile
-   export MODEL=reservas
-   ```
+**Opción B — usar TU modelo fine-tuneado** (¡ya listo!): el adapter LoRA en GGUF ya
+está en `../deploy/reservas-lora-f16.gguf` (48 MB). Solo crea el modelo en Ollama
+(el `Modelfile` hace `FROM gemma4:e2b` + `ADAPTER`):
+```bash
+ollama pull gemma4:e2b
+ollama create reservas -f ../deploy/Modelfile
+export MODEL=reservas
+```
 
 ## 2. Arranca la demo
 ```bash

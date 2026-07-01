@@ -153,5 +153,9 @@ El notebook se ejecutó **end-to-end en una T4** (vía el CLI de Colab):
 - En Gemma 4 el `tokenizer` es un **`Gemma4Processor`**; las operaciones a nivel de
   token (ids, decode) usan su tokenizer interno (`tok = getattr(tokenizer, "tokenizer", tokenizer)`).
   Ya está aplicado en el notebook.
-- **Pendiente de probar:** el export a **GGUF** de Gemma 4 (va con `try/except` y plan
-  B `merged_16bit`).
+- **GGUF (para Ollama):** el `save_pretrained_gguf` de Unsloth **falla** con Gemma 4
+  (su convertidor va desfasado) y fusionar el modelo completo **no cabe en los 12 GB
+  de la T4**. La solución que **sí funciona**: convertir *solo el adapter LoRA* a GGUF
+  con el `llama.cpp` de upstream (`convert_lora_to_gguf.py`, que ya soporta Gemma 4).
+  Resultado en `deploy/reservas-lora-f16.gguf` (48 MB) → se usa en Ollama con
+  `FROM gemma4:e2b` + `ADAPTER` (ver `deploy/Modelfile`).
