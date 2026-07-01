@@ -80,6 +80,81 @@ function resolverInstalacion(texto) {
   return ALIAS[String(texto).trim().toLowerCase()] || null;
 }
 
+// ---- Resolución de fechas (la hace el CÓDIGO, no el modelo) ----
+const _NUM_PAL = { un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6,
+  siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14 };
+const _DIAS_SEM = { lunes: 0, martes: 1, "miércoles": 2, miercoles: 2, jueves: 3,
+  viernes: 4, "sábado": 5, sabado: 5, domingo: 6 };
+const _MESES_N = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7,
+  agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
+const _DIAS_NOM = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+const _MESES_NOM = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+  "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+function _addDias(iso, n) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+function _wdLunes(iso) {   // 0=lunes ... 6=domingo
+  const [y, m, d] = iso.split("-").map(Number);
+  return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+}
+function _mkISO(y, mo, d) {
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  if (dt.getUTCMonth() !== mo - 1) return null;   // fecha inexistente (p. ej. 30 feb)
+  return dt.toISOString().slice(0, 10);
+}
+
+function resolverFecha(texto, hoyIso) {
+  if (texto == null) return null;
+  const t = String(texto).trim().toLowerCase();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  if (t === "hoy") return hoyIso;
+  if (t === "mañana" || t === "manana") return _addDias(hoyIso, 1);
+  if (t.includes("pasado mañana") || t.includes("pasado manana") || t === "pasado") return _addDias(hoyIso, 2);
+  let m = t.match(/(?:dentro de|en)\s+(\d+|un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce)\s+d[ií]as?/);
+  if (m) { const n = /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : _NUM_PAL[m[1]]; if (n != null) return _addDias(hoyIso, n); }
+  if (/(?:dentro de|en)\s+una\s+semana/.test(t) || t.includes("semana que viene") ||
+      t.includes("próxima semana") || t.includes("proxima semana")) return _addDias(hoyIso, 7);
+  for (const [nombre, wd] of Object.entries(_DIAS_SEM)) {
+    if (new RegExp("\\b" + nombre + "\\b").test(t)) {
+      const delta = ((wd - _wdLunes(hoyIso)) % 7 + 7) % 7 || 7;
+      return _addDias(hoyIso, delta);
+    }
+  }
+  m = t.match(/(\d{1,2})\s+de\s+([a-zéí]+)/);
+  if (m && _MESES_N[m[2]]) {
+    const dia = parseInt(m[1], 10), mes = _MESES_N[m[2]], y = parseInt(hoyIso.slice(0, 4), 10);
+    let cand = _mkISO(y, mes, dia);
+    if (!cand) return null;
+    if (cand < hoyIso) cand = _mkISO(y + 1, mes, dia);
+    return cand;
+  }
+  m = t.match(/d[ií]a\s+(\d{1,2})/);
+  if (m) {
+    const dia = parseInt(m[1], 10);
+    let y = parseInt(hoyIso.slice(0, 4), 10), mo = parseInt(hoyIso.slice(5, 7), 10);
+    for (let i = 0; i < 13; i++) {
+      const c = _mkISO(y, mo, dia);
+      if (c && c >= hoyIso) return c;
+      mo++; if (mo > 12) { mo = 1; y++; }
+    }
+  }
+  return null;
+}
+
+function fechaHumana(iso, hoyIso) {
+  const ms = (s) => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
+  const delta = Math.round((ms(iso) - ms(hoyIso)) / 864e5);
+  if (delta === 0) return "hoy";
+  if (delta === 1) return "mañana";
+  if (delta === 2) return "pasado mañana";
+  const [y, mo, d] = iso.split("-").map(Number);
+  return "el " + _DIAS_NOM[_wdLunes(iso)] + " " + d + " de " + _MESES_NOM[mo - 1];
+}
+
 class Backend {
   constructor(hoy, seed = 7) {
     this.hoy = hoy;          // 'YYYY-MM-DD'
@@ -154,8 +229,11 @@ class Backend {
   consultarDisponibilidad(instalacion, fecha, horaInicio = null, franja = null, duracionMin = null) {
     const slug = resolverInstalacion(instalacion);
     if (!slug) return { error: "instalacion_desconocida", instalacion };
+    const iso = resolverFecha(fecha, this.hoy);   // el código resuelve la fecha
+    if (!iso) return { error: "fecha_no_entendida", fecha_recibida: fecha };
+    fecha = iso;
     const dur = duracionMin || CATALOGO[slug].duraciones[0];
-    const res = { instalacion: slug, fecha, hora_consultada: horaInicio, duracion_min: dur, libres: [], alternativas: [] };
+    const res = { instalacion: slug, fecha, fecha_humana: fechaHumana(fecha, this.hoy), hora_consultada: horaInicio, duracion_min: dur, libres: [], alternativas: [] };
     if (horaInicio) {
       res.libres = this._recursosLibres(slug, fecha, horaInicio, dur);
       if (!res.libres.length) res.alternativas = this.buscarHuecos(slug, fecha, dur, null, 3);
@@ -172,9 +250,10 @@ class Backend {
     }
     if (nombre) {
       const objetivo = String(nombre).trim().toLowerCase();
+      const iso = fecha ? resolverFecha(fecha, this.hoy) : null;
       const cands = Object.values(this.reservas).filter(
         (r) => r.nombre.trim().toLowerCase() === objetivo && r.estado === "confirmada" &&
-               (fecha == null || r.fecha === fecha));
+               (iso == null || r.fecha === iso));
       if (cands.length) {
         cands.sort((a, b) => (a.fecha + a.hora_inicio).localeCompare(b.fecha + b.hora_inicio));
         return this._reservaPublica(cands[0]);
@@ -184,11 +263,13 @@ class Backend {
   }
 
   crearReserva(args) {
-    const { instalacion, fecha, hora_inicio, duracion_min, nombre } = args;
+    const { instalacion, hora_inicio, duracion_min, nombre } = args;
     const recurso = args.recurso, num_personas = args.num_personas ?? null, contacto = args.contacto ?? null;
     const slug = resolverInstalacion(instalacion);
     if (!slug) return { ok: false, motivo: "instalacion_desconocida" };
     const info = CATALOGO[slug];
+    const fecha = resolverFecha(args.fecha, this.hoy);   // el código resuelve la fecha
+    if (!fecha) return { ok: false, motivo: "fecha_no_entendida", fecha_recibida: args.fecha };
     if (fecha < this.hoy) return { ok: false, motivo: "fecha_pasada" };
     if (!info.duraciones.includes(duracion_min))
       return { ok: false, motivo: "duracion_no_valida", duraciones_validas: info.duraciones };
@@ -202,13 +283,18 @@ class Backend {
     const loc = this._nuevoLocalizador();
     this.reservas[loc] = { localizador: loc, instalacion: slug, recurso: asignado,
       fecha, hora_inicio, duracion_min, nombre, num_personas, contacto, estado: "confirmada" };
-    return { ok: true, localizador: loc, recurso: asignado, precio: this._precio(slug, duracion_min, num_personas) };
+    return { ok: true, localizador: loc, recurso: asignado, fecha,
+      fecha_humana: fechaHumana(fecha, this.hoy), precio: this._precio(slug, duracion_min, num_personas) };
   }
 
   modificarReserva(localizador, cambios) {
     const r = this.reservas[String(localizador).toUpperCase().trim()];
     if (!r || r.estado !== "confirmada") return { ok: false, motivo: "no_encontrada" };
-    for (const campo of ["fecha", "hora_inicio", "duracion_min", "recurso"])
+    if (cambios.fecha != null) {
+      const iso = resolverFecha(cambios.fecha, this.hoy);
+      if (iso) r.fecha = iso;
+    }
+    for (const campo of ["hora_inicio", "duracion_min", "recurso"])
       if (cambios[campo] != null) r[campo] = cambios[campo];
     return { ok: true, localizador: r.localizador, reserva: this._reservaPublica(r) };
   }
@@ -285,13 +371,15 @@ function systemPrompt(fechaActual) {
   return (
 `Eres el asistente del Polideportivo Municipal Las Encinas. Tu único objetivo es ayudar a la gente a (1) reservar una instalación o (2) consultar, modificar o cancelar una reserva suya. Cualquier otra cosa, reconócela con amabilidad y reconduce SIEMPRE hacia eso.
 
-Fecha actual: ${fechaActual}. Resuelve las fechas relativas ("hoy", "mañana", "el sábado") a partir de ella. El centro abre todos los días de 8:00 a 22:00.
+Fecha actual: ${fechaActual}. El centro abre todos los días de 8:00 a 22:00.
 
 Instalaciones:
 ${instalaciones}
 
 Cómo trabajas:
 - No te inventes la disponibilidad ni los datos de una reserva. Para saberlos, usa las herramientas.
+- FECHAS: no las calcules tú. En el campo "fecha" escribe TAL CUAL lo que diga el usuario ("mañana", "dentro de dos días", "el sábado", "el 4 de julio"); el sistema te devolverá la fecha ya resuelta en "fecha_humana", y esa es la que dices al usuario. Si es ambigua (p. ej. "el finde"), pide que la concrete.
+- DURACIÓN: respeta las duraciones válidas de cada instalación; si piden una no válida, ofréceles las opciones correctas.
 - Pide los datos que falten de uno en uno, con naturalidad.
 - Antes de crear, modificar o cancelar, resume y pide confirmación.
 - Responde en español, en frases breves y claras.
@@ -307,4 +395,4 @@ El sistema te devolverá el resultado en un mensaje con rol "tool". Úsalo para 
   );
 }
 
-module.exports = { Backend, CATALOGO, systemPrompt, resolverInstalacion };
+module.exports = { Backend, CATALOGO, systemPrompt, resolverInstalacion, resolverFecha, fechaHumana };
