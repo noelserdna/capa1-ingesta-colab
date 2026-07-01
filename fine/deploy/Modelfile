@@ -1,19 +1,16 @@
-# Modelfile para Ollama — Asistente de reservas (Gemma 4 E2B fine-tuned)
-# Uso en el servidor:  ollama create reservas -f Modelfile  &&  ollama run reservas
-#
-# El .gguf lo generas en el notebook (Paso 10) y lo copias junto a este fichero.
+# Modelfile para Ollama — Asistente de reservas (Gemma 4 E2B + adapter LoRA)
+# Uso:  ollama create reservas -f Modelfile   (desde esta carpeta deploy/)
+# Requiere:  ollama pull gemma4:e2b
 
-FROM ./gemma4-e2b-reservas-Q4_K_M.gguf
+FROM gemma4:e2b
+ADAPTER ./reservas-lora-f16.gguf
 
 PARAMETER temperature 0.3
 PARAMETER top_p 0.95
-PARAMETER num_ctx 8192
 PARAMETER stop "<end_of_turn>"
 
-# OJO con la fecha: este SYSTEM lleva {{FECHA_ACTUAL}} como marcador. Lo ideal es
-# que tu aplicación envíe el system prompt con la fecha REAL en cada conversación
-# (ver deploy/DESPLIEGUE.md). Si prefieres dejarlo fijo aquí, regenera el Modelfile
-# cada día. El texto de abajo es EXACTAMENTE el system prompt del entrenamiento.
+# La app suele enviar el system prompt con la fecha real en cada conversación
+# (ver deploy/DESPLIEGUE.md). Este es el mismo texto con el que se entrenó.
 SYSTEM """Eres el asistente del Polideportivo Municipal Las Encinas. Tu único objetivo es ayudar a la gente a (1) reservar una instalación o (2) consultar, modificar o cancelar una reserva suya. Cualquier otra cosa, reconócela con amabilidad y reconduce SIEMPRE hacia eso.
 
 Fecha actual: {{FECHA_ACTUAL}}. Resuelve las fechas relativas ("hoy", "mañana", "el sábado") a partir de ella. El centro abre todos los días de 8:00 a 22:00.
