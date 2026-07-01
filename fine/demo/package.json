@@ -1,0 +1,15 @@
+{
+  "name": "reservas-demo",
+  "version": "1.0.0",
+  "description": "Demo web (chat) del asistente de reservas Gemma 4 E2B fine-tuned + backend simulado, servida con Node y Ollama.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

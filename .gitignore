@@ -15,5 +15,8 @@ service-account*.json
 .env
 *.pem
 
+# Node (demo)
+node_modules/
+
 # OS
 .DS_Store

@@ -52,6 +52,9 @@ fine/
 ├── notebooks/
 │   ├── finetune_gemma4_reservas.ipynb   # Colab: instalar→cargar→entrenar→PROBAR→guardar
 │   └── probar_modelo_reservas.ipynb     # Colab: cargar adapter + chat interactivo con backend_sim
+├── demo/                     # chat web (Node + Ollama) que usa el modelo tuneado
+│   ├── server.js · backend_sim.js · package.json
+│   └── public/ (index.html · styles.css · app.js)
 ├── deploy/                   # FUTURO (servidor con Ollama)
 │   ├── Modelfile
 │   ├── system_prompt.txt
@@ -88,6 +91,16 @@ pon **GPU T4** y ejecuta. El **adapter entrenado ya viene en el repo**, así que
 tienes que subir nada: tendrás un **chat interactivo** donde el modelo conversa y,
 cuando necesita datos, llama de verdad a `backend_sim`. Incluye demos guiadas y un
 visor del estado del backend.
+
+### 2c. Demo web (chat en el navegador)
+En [`demo/`](demo/) hay un **chat web** (Node + HTML/CSS/JS) que habla con el modelo
+vía **Ollama** y ejecuta el bucle de herramientas contra `backend_sim.js`, con un
+panel que muestra la "base de datos" de reservas en vivo. Arranque:
+```bash
+cd demo && npm install
+MODEL=reservas node server.js      # o MODEL=gemma4:e2b para probar con el base
+```
+Requiere Node 18+ y Ollama. Detalles en [`demo/README.md`](demo/README.md).
 
 ### 3. Desplegar — FUTURO
 Cuando montes tu servidor de 12 GB, exporta a GGUF (Paso 10 del notebook) y sigue
