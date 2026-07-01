@@ -17,6 +17,3 @@ service-account*.json
 
 # OS
 .DS_Store
-
-# Adapter entrenado (pesos grandes — no caben en GitHub sin git-lfs)
-fine/adapter/

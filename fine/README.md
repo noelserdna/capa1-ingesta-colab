@@ -9,6 +9,16 @@ siempre** hacia el objetivo: que el usuario reserve o conozca el estado de su re
 > El entrenamiento se hace en **Google Colab** (GPU T4 gratis) y, de momento, el
 > modelo también se **prueba dentro del propio Colab**.
 
+## Abrir en Colab
+
+| Cuaderno | Abrir |
+|----------|-------|
+| **Probar el modelo entrenado** (chat + `backend_sim`) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/noelserdna/capa1-ingesta-colab/blob/main/fine/notebooks/probar_modelo_reservas.ipynb) |
+| **Entrenar** (QLoRA con Unsloth) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/noelserdna/capa1-ingesta-colab/blob/main/fine/notebooks/finetune_gemma4_reservas.ipynb) |
+
+> El notebook de prueba **ya trae el adapter entrenado** (incluido en el repo): solo
+> abre, pon GPU T4 y ejecuta.
+
 ---
 
 ## La idea en 30 segundos
@@ -72,11 +82,12 @@ y ejecuta las celdas en orden. El notebook:
 4. **prueba el modelo con el bucle de herramientas** usando `backend_sim`,
 5. guarda el **adapter LoRA en tu Google Drive** (las sesiones de Colab se borran).
 
-### 2b. Probar el modelo entrenado — en Google Colab
-Abre `notebooks/probar_modelo_reservas.ipynb` (GPU T4), **sube tu `fine/adapter`
-comprimido** (`cd fine && zip -r adapter.zip adapter`) y tendrás un **chat
-interactivo**: el modelo conversa y, cuando necesita datos, llama de verdad a
-`backend_sim`. Incluye demos guiadas y un visor del estado del backend.
+### 2b. Probar el modelo entrenado — en Google Colab (1 clic)
+Abre `notebooks/probar_modelo_reservas.ipynb` con el **botón de Colab** de arriba,
+pon **GPU T4** y ejecuta. El **adapter entrenado ya viene en el repo**, así que no
+tienes que subir nada: tendrás un **chat interactivo** donde el modelo conversa y,
+cuando necesita datos, llama de verdad a `backend_sim`. Incluye demos guiadas y un
+visor del estado del backend.
 
 ### 3. Desplegar — FUTURO
 Cuando montes tu servidor de 12 GB, exporta a GGUF (Paso 10 del notebook) y sigue
@@ -118,10 +129,9 @@ El notebook se ejecutó **end-to-end en una T4** (vía el CLI de Colab):
 - `unsloth/gemma-4-E2B-it` **carga correctamente** (caveat del `model_name` resuelto).
 - Entrenamiento: **1 época · 135 pasos · ~30 min** · LoRA = **25,3M params (0,49%)**.
 - *Loss* por paso: **0.39 → ~0.007** (avg final 0.0516).
-- El adapter entrenado quedó en **`fine/adapter/`** (97 MB, 490 tensores LoRA, `r=16`).
-  Está en `.gitignore` (supera el límite de 100 MB de GitHub; usa **git-lfs** si lo
-  quieres versionar). Para reutilizarlo, ver la celda *"Reutilizar un adapter ya
-  guardado"* del notebook.
+- El adapter entrenado está en **`fine/adapter/`** (97 MB, 490 tensores LoRA, `r=16`)
+  y **se ha subido al repo** (por debajo del límite de 100 MB de GitHub), así que el
+  notebook de prueba lo carga directamente tras el `git clone`.
 
 ### Lecciones / pendientes
 - **Ejecuta el notebook en el navegador**, no en modo *headless* por CLI: las sesiones
