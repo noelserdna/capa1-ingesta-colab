@@ -47,6 +47,15 @@ Tu **primera ingesta de datos real**: traer información de una fuente externa y
 
 **Requisito:** Notebook 0 completado (entorno en verde). **Tiempo estimado:** ~60 min.
 
+## Extra · Fine-tuning de un LLM (asistente de reservas)
+
+En [`fine/`](fine/) hay un subproyecto aparte: especializar **Gemma 4 E2B** con **QLoRA** para un asistente de reservas de instalaciones que conversa y **llama a herramientas** (consultar disponibilidad, crear/cancelar reservas…) sobre un **backend simulado**. Incluye el dataset sintético (1.200 conversaciones), el backend, los notebooks y el **adapter ya entrenado**. Detalles en [`fine/README.md`](fine/README.md).
+
+| Cuaderno | Abrir en Colab |
+|----------|----------------|
+| Probar el modelo entrenado (chat + `backend_sim`) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/noelserdna/capa1-ingesta-colab/blob/main/fine/notebooks/probar_modelo_reservas.ipynb) |
+| Entrenar (QLoRA con Unsloth) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/noelserdna/capa1-ingesta-colab/blob/main/fine/notebooks/finetune_gemma4_reservas.ipynb) |
+
 ## Uso
 
 Abre cualquier cuaderno con su badge **Open in Colab** o clónalo:
