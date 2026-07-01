@@ -48,8 +48,16 @@ El asistente **no inventa** disponibilidad ni datos de reservas: para conocerlos
 
 ## 3. Herramientas (contrato de E/S)
 
-Las cinco herramientas y sus argumentos. Tipos: `fecha` = `YYYY-MM-DD`,
-`hora_inicio` = `HH:MM` (24h), `duracion_min` ∈ {60, 90, 120, 180}.
+Las cinco herramientas y sus argumentos. Tipos: `hora_inicio` = `HH:MM` (24h),
+`duracion_min` ∈ {60, 90, 120, 180}.
+
+> **Fechas (importante):** en el campo `fecha` el modelo escribe **la expresión del
+> usuario tal cual** ("mañana", "dentro de dos días", "el sábado", "el 4 de julio", o
+> ya un ISO). **El backend la resuelve** (`resolver_fecha`) y devuelve en el resultado
+> `fecha` = ISO ya resuelto y `fecha_humana` para que el modelo la diga. Así el modelo
+> **no hace aritmética de fechas** (poco fiable en modelos pequeños). Si la expresión
+> es ambigua (p. ej. "el finde"), el backend devuelve error y el asistente pide que la
+> concrete.
 
 ### 3.1 `consultar_disponibilidad` (lectura)
 ```jsonc
@@ -118,8 +126,8 @@ ayudar a la gente a (1) reservar una instalación o (2) consultar, modificar o
 cancelar una reserva suya. Cualquier otra cosa, reconócela con amabilidad y
 reconduce SIEMPRE hacia eso.
 
-Fecha actual: {fecha_actual}. Resuelve las fechas relativas ("hoy", "mañana",
-"el sábado") a partir de ella. El centro abre todos los días de 8:00 a 22:00.
+Fecha actual: {fecha_actual}. El centro abre todos los días de 8:00 a 22:00.
+(No calcules fechas: copia la expresión del usuario en `fecha`; el sistema la resuelve.)
 
 Instalaciones:
 - Pádel: 4 pistas. 60 o 90 min. Hasta 4 personas. 8 €/hora (socios 6 €).

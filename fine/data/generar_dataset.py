@@ -152,21 +152,34 @@ def frase_duracion(dur):
             120: "dos horas", 180: "tres horas"}.get(dur, "{} minutos".format(dur))
 
 
+_PALABRA_NUM = {2: "dos", 3: "tres", 4: "cuatro", 5: "cinco", 6: "seis", 7: "siete"}
+
+
 def fecha_concreta(hoy, rng):
-    """Devuelve (frase_usuario, fecha_iso) con una fecha FUTURA concreta."""
+    """Devuelve (frase_usuario, fecha_iso) con una fecha FUTURA concreta.
+
+    La frase es lo que dice el usuario (y lo que el modelo copiará en la
+    herramienta); el ISO es la fecha ya resuelta. Incluye 'dentro de N días' y
+    'en una semana' para que el modelo aprenda a delegar la aritmética al sistema.
+    """
     estilo = rng.choices(
-        ["manana", "pasado", "dia_semana", "dia_mes"],
-        weights=[3, 1, 4, 2], k=1)[0]
+        ["manana", "pasado", "dentro_dias", "dia_semana", "en_semana", "dia_mes"],
+        weights=[3, 1, 4, 4, 1, 2], k=1)[0]
     if estilo == "manana":
-        d = hoy + timedelta(days=1)
-        return "mañana", d.isoformat()
+        return "mañana", (hoy + timedelta(days=1)).isoformat()
     if estilo == "pasado":
-        d = hoy + timedelta(days=2)
-        return "pasado mañana", d.isoformat()
+        return "pasado mañana", (hoy + timedelta(days=2)).isoformat()
+    if estilo == "dentro_dias":
+        n = rng.randint(2, 7)
+        frase = rng.choice(["dentro de {} días", "en {} días"]).format(_PALABRA_NUM[n])
+        return frase, (hoy + timedelta(days=n)).isoformat()
     if estilo == "dia_semana":
         d = hoy + timedelta(days=rng.randint(2, 8))
         pre = rng.choice(["el", "este", "el próximo"])
         return "{} {}".format(pre, DIAS[d.weekday()]), d.isoformat()
+    if estilo == "en_semana":
+        return rng.choice(["en una semana", "la semana que viene"]), \
+               (hoy + timedelta(days=7)).isoformat()
     d = hoy + timedelta(days=rng.randint(3, 25))
     return "el {} de {}".format(d.day, MESES[d.month - 1]), d.isoformat()
 
@@ -217,7 +230,7 @@ def tool_result(resultado):
 # 4. CONSTRUCTORES DE CONVERSACIÓN (uno por intención)
 # ===========================================================================
 
-def cerrar_reserva(bk, hoy, rng, slug, fecha, hora, dur, nombre, num_personas):
+def cerrar_reserva(bk, hoy, rng, slug, frase_fecha, fecha, hora, dur, nombre, num_personas):
     """Tramo final compartido: consultar -> (alternativa si hace falta) ->
     confirmar -> crear -> cierre. Devuelve (lista_de_mensajes, escenario).
 
@@ -227,11 +240,13 @@ def cerrar_reserva(bk, hoy, rng, slug, fecha, hora, dur, nombre, num_personas):
     msgs = []
     escenario = "directo"
 
-    res = bk.consultar_disponibilidad(slug, fecha, hora_inicio=hora, duracion_min=dur)
+    # El modelo pasa la FRASE del usuario en 'fecha'; el backend la resuelve.
+    res = bk.consultar_disponibilidad(slug, frase_fecha, hora_inicio=hora, duracion_min=dur)
     msgs.append(tool_call("consultar_disponibilidad",
-                {"instalacion": slug, "fecha": fecha, "hora_inicio": hora,
+                {"instalacion": slug, "fecha": frase_fecha, "hora_inicio": hora,
                  "duracion_min": dur}))
     msgs.append(tool_result(res))
+    fecha = res.get("fecha", fecha)   # ISO ya resuelto (para confirmar y crear)
 
     if not res["libres"]:
         alts = res["alternativas"]
@@ -328,11 +343,12 @@ def conv_crear(bk, hoy, rng):
     meta = {"intencion": "crear_reserva", "instalacion": slug}
 
     # --- El asistente pide los datos que falten, de uno en uno ---
+    op_dur = " o ".join(frase_duracion(d) for d in info["duraciones"])  # solo válidas
     preguntas = {
         "fecha": ["¿Para qué día lo quieres?", "¿Qué día te viene bien?"],
         "hora": ["¿A qué hora?", "¿A qué hora te vendría bien?"],
-        "duracion": ["¿Una hora o una hora y media?" if 90 in info["duraciones"]
-                     else "¿Cuánto rato lo quieres?", "¿Cuánto rato, una hora o más?"],
+        "duracion": ["¿{}?".format(op_dur[0].upper() + op_dur[1:]),
+                     "¿Cuánto rato, {}?".format(op_dur)],
         "personas": ["¿Cuántos vais a ser?", "¿Cuántas personas sois?"],
         "nombre": ["¿A nombre de quién la pongo?", "¿A nombre de quién?"],
     }
@@ -359,11 +375,18 @@ def conv_crear(bk, hoy, rng):
             texto_pregunta = "{} {}".format(rng.choice(["¡Hola! Claro.", "¡Claro!",
                               "Perfecto."]), texto_pregunta)
         msgs.append(asst(texto_pregunta))
+        # A veces el usuario pide una duración no válida y el asistente la corrige.
+        if slot == "duracion" and rng.random() < 0.25:
+            invalida = rng.choice([x for x in ["dos horas", "tres horas", "media hora"]
+                                   if x not in [frase_duracion(d) for d in info["duraciones"]]])
+            msgs.append(usr(invalida))
+            msgs.append(asst("Para {} las reservas son de {}, no puedo ponerte {}. "
+                             "¿Cuál prefieres?".format(nombre_inst.lower(), op_dur, invalida)))
         msgs.append(usr(respuestas[slot]))
         primera_pregunta = False
 
     # --- Consultar disponibilidad, confirmar y crear (lógica compartida) ---
-    cuerpo, escenario = cerrar_reserva(bk, hoy, rng, slug, fecha, hora, dur,
+    cuerpo, escenario = cerrar_reserva(bk, hoy, rng, slug, frase_fecha, fecha, hora, dur,
                                        nombre, num_personas if pide_personas else None)
     meta["escenario"] = escenario
     return msgs + cuerpo, meta
@@ -390,11 +413,12 @@ def conv_disponibilidad(bk, hoy, rng):
     msgs = [usr(primer)]
     meta = {"intencion": "consultar_disponibilidad", "instalacion": slug}
 
-    res = bk.consultar_disponibilidad(slug, fecha, franja=franja, duracion_min=dur)
+    res = bk.consultar_disponibilidad(slug, frase_fecha, franja=franja, duracion_min=dur)
     msgs.append(tool_call("consultar_disponibilidad",
-                {"instalacion": slug, "fecha": fecha, "franja": franja,
+                {"instalacion": slug, "fecha": frase_fecha, "franja": franja,
                  "duracion_min": dur}))
     msgs.append(tool_result(res))
+    fecha = res.get("fecha", fecha)   # ISO resuelto por el backend
 
     opciones = res["alternativas"]
     if not opciones:
@@ -675,6 +699,7 @@ def conv_fecha_ambigua(bk, hoy, rng):
             fecha, dia = proximo_dia_semana(hoy, 5).isoformat(), "el sábado"
         else:
             fecha, dia = proximo_dia_semana(hoy, 6).isoformat(), "el domingo"
+        frase_f = dia
         msgs.append(usr(dia))
     else:
         msgs.append(asst("¡Claro! ¿Qué día en concreto te viene bien?"))
@@ -687,7 +712,7 @@ def conv_fecha_ambigua(bk, hoy, rng):
     msgs.append(asst("¿A nombre de quién la pongo?"))
     msgs.append(usr(nombre))
     num = rng.randint(2, info["max_personas"]) if info["pregunta_personas"] else None
-    cuerpo, _ = cerrar_reserva(bk, hoy, rng, slug, fecha, hora, dur, nombre, num)
+    cuerpo, _ = cerrar_reserva(bk, hoy, rng, slug, frase_f, fecha, hora, dur, nombre, num)
     return msgs + cuerpo, meta
 
 
@@ -713,7 +738,7 @@ def conv_fuera_horario(bk, hoy, rng):
     msgs.append(asst("Genial. ¿A nombre de quién?"))
     msgs.append(usr(nombre))
     num = rng.randint(2, info["max_personas"]) if info["pregunta_personas"] else None
-    cuerpo, _ = cerrar_reserva(bk, hoy, rng, slug, fecha, hora, dur, nombre, num)
+    cuerpo, _ = cerrar_reserva(bk, hoy, rng, slug, frase_f, fecha, hora, dur, nombre, num)
     return msgs + cuerpo, meta
 
 
@@ -739,7 +764,7 @@ def conv_duracion_invalida(bk, hoy, rng):
     msgs.append(asst("Perfecto. ¿A nombre de quién?"))
     msgs.append(usr(nombre))
     num = rng.randint(2, info["max_personas"]) if info["pregunta_personas"] else None
-    cuerpo, _ = cerrar_reserva(bk, hoy, rng, slug, fecha, hora, dur, nombre, num)
+    cuerpo, _ = cerrar_reserva(bk, hoy, rng, slug, frase_f, fecha, hora, dur, nombre, num)
     return msgs + cuerpo, meta
 
 
@@ -760,7 +785,7 @@ def conv_cambio_opinion(bk, hoy, rng):
         msgs.append(asst("¡Claro! ¿A nombre de quién?"))
         msgs.append(usr(nombre))
         num = rng.randint(2, info["max_personas"]) if info["pregunta_personas"] else None
-        cuerpo, _ = cerrar_reserva(bk, hoy, rng, slug, fecha, hora, dur, nombre, num)
+        cuerpo, _ = cerrar_reserva(bk, hoy, rng, slug, frase_f, fecha, hora, dur, nombre, num)
         return msgs + cuerpo, {"intencion": "crear_reserva", "instalacion": slug,
                                "escenario": "directo"}
 
@@ -777,9 +802,9 @@ def conv_cambio_opinion(bk, hoy, rng):
     msgs.append(usr(rng.choice(["uy espera, mejor a {}".format(hora_humana(h2)),
                                 "perdona, cámbiala a {}".format(hora_humana(h2))])))
     msgs.append(asst("¡Sin problema! Lo cambio a {}.".format(hora_humana(h2))))
-    res = bk.consultar_disponibilidad(slug, fecha, hora_inicio=h2, duracion_min=dur)
+    res = bk.consultar_disponibilidad(slug, frase_f, hora_inicio=h2, duracion_min=dur)
     msgs.append(tool_call("consultar_disponibilidad",
-                {"instalacion": slug, "fecha": fecha, "hora_inicio": h2, "duracion_min": dur}))
+                {"instalacion": slug, "fecha": frase_f, "hora_inicio": h2, "duracion_min": dur}))
     msgs.append(tool_result(res))
     msgs.append(asst("Confirmo entonces: {} {} a {}, a nombre de {}. ¿Reservo?".format(
         info["nombre"], humana_fecha(fecha, hoy), hora_humana(h2), nombre)))

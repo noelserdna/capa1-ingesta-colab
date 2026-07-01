@@ -182,6 +182,99 @@ def resolver_instalacion(texto: str) -> Optional[str]:
 
 
 # ---------------------------------------------------------------------------
+# 3b. RESOLUCIÓN DE FECHAS (la hace el CÓDIGO, no el modelo)
+# ---------------------------------------------------------------------------
+# Un modelo de 2B es flojo en aritmética de fechas ("dentro de dos días" ->
+# +2). Por eso el modelo solo COPIA la expresión del usuario y aquí la
+# convertimos a ISO de forma fiable.
+
+import re as _re
+
+_NUM_PALABRA = {"un": 1, "uno": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4,
+                "cinco": 5, "seis": 6, "siete": 7, "ocho": 8, "nueve": 9,
+                "diez": 10, "once": 11, "doce": 12, "trece": 13, "catorce": 14}
+_DIAS_SEMANA = {"lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2,
+                "jueves": 3, "viernes": 4, "sábado": 5, "sabado": 5, "domingo": 6}
+_MESES = {"enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+          "julio": 7, "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10,
+          "noviembre": 11, "diciembre": 12}
+_DIAS_NOMBRE = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+_MESES_NOMBRE = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+                 "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def resolver_fecha(texto, hoy_iso):
+    """Convierte una expresión de fecha (relativa o absoluta) a ISO 'YYYY-MM-DD'.
+
+    Devuelve None si no la entiende o es ambigua (p. ej. "el finde"), para que el
+    asistente pida que la concreten.
+    """
+    if texto is None:
+        return None
+    t = str(texto).strip().lower()
+    hoy = dt.date.fromisoformat(hoy_iso)
+    if _re.fullmatch(r"\d{4}-\d{2}-\d{2}", t):            # ya es ISO
+        return t
+    if t == "hoy":
+        return hoy.isoformat()
+    if t in ("mañana", "manana"):
+        return (hoy + dt.timedelta(days=1)).isoformat()
+    if "pasado mañana" in t or "pasado manana" in t or t == "pasado":
+        return (hoy + dt.timedelta(days=2)).isoformat()
+    m = _re.search(r"(?:dentro de|en)\s+(\d+|un|uno|una|dos|tres|cuatro|cinco|seis|"
+                   r"siete|ocho|nueve|diez|once|doce|trece|catorce)\s+d[ií]as?", t)
+    if m:
+        n = int(m.group(1)) if m.group(1).isdigit() else _NUM_PALABRA.get(m.group(1))
+        if n is not None:
+            return (hoy + dt.timedelta(days=n)).isoformat()
+    if (_re.search(r"(?:dentro de|en)\s+una\s+semana", t) or "semana que viene" in t
+            or "próxima semana" in t or "proxima semana" in t):
+        return (hoy + dt.timedelta(days=7)).isoformat()
+    for nombre, wd in _DIAS_SEMANA.items():               # el/este/próximo <día>
+        if _re.search(r"\b" + nombre + r"\b", t):
+            delta = (wd - hoy.weekday()) % 7 or 7          # próxima aparición
+            return (hoy + dt.timedelta(days=delta)).isoformat()
+    m = _re.search(r"(\d{1,2})\s+de\s+([a-zéí]+)", t)      # "el 4 de julio"
+    if m and _MESES.get(m.group(2)):
+        dia, mes = int(m.group(1)), _MESES[m.group(2)]
+        anio = hoy.year
+        try:
+            cand = dt.date(anio, mes, dia)
+        except ValueError:
+            return None
+        if cand < hoy:
+            cand = dt.date(anio + 1, mes, dia)
+        return cand.isoformat()
+    m = _re.search(r"d[ií]a\s+(\d{1,2})", t)               # "el día 15"
+    if m:
+        dia, anio, mes = int(m.group(1)), hoy.year, hoy.month
+        for _ in range(13):
+            try:
+                cand = dt.date(anio, mes, dia)
+                if cand >= hoy:
+                    return cand.isoformat()
+            except ValueError:
+                pass
+            mes += 1
+            if mes > 12:
+                mes, anio = 1, anio + 1
+    return None
+
+
+def fecha_humana(iso, hoy_iso):
+    """ISO -> forma natural relativa a hoy ('mañana', 'el jueves 4 de julio')."""
+    d = dt.date.fromisoformat(iso)
+    delta = (d - dt.date.fromisoformat(hoy_iso)).days
+    if delta == 0:
+        return "hoy"
+    if delta == 1:
+        return "mañana"
+    if delta == 2:
+        return "pasado mañana"
+    return "el %s %d de %s" % (_DIAS_NOMBRE[d.weekday()], d.day, _MESES_NOMBRE[d.month - 1])
+
+
+# ---------------------------------------------------------------------------
 # 4. EL BACKEND
 # ---------------------------------------------------------------------------
 
@@ -292,11 +385,16 @@ class Backend:
         slug = resolver_instalacion(instalacion)
         if slug is None:
             return {"error": "instalacion_desconocida", "instalacion": instalacion}
+        iso = resolver_fecha(fecha, self.hoy)   # el código resuelve la fecha
+        if iso is None:
+            return {"error": "fecha_no_entendida", "fecha_recibida": fecha}
+        fecha = iso
         dur = duracion_min or CATALOGO[slug]["duraciones"][0]
 
         resultado = {
             "instalacion": slug,
             "fecha": fecha,
+            "fecha_humana": fecha_humana(fecha, self.hoy),
             "hora_consultada": hora_inicio,
             "duracion_min": dur,
             "libres": [],
@@ -322,11 +420,12 @@ class Backend:
             return {"encontrada": False}
         if nombre:
             objetivo = nombre.strip().lower()
+            iso = resolver_fecha(fecha, self.hoy) if fecha else None
             candidatas = [
                 r for r in self.reservas.values()
                 if r["nombre"].strip().lower() == objetivo
                 and r["estado"] == "confirmada"
-                and (fecha is None or r["fecha"] == fecha)
+                and (iso is None or r["fecha"] == iso)
             ]
             if candidatas:
                 candidatas.sort(key=lambda r: (r["fecha"], r["hora_inicio"]))
@@ -340,6 +439,11 @@ class Backend:
         if slug is None:
             return {"ok": False, "motivo": "instalacion_desconocida"}
         info = CATALOGO[slug]
+
+        iso = resolver_fecha(fecha, self.hoy)   # el código resuelve la fecha
+        if iso is None:
+            return {"ok": False, "motivo": "fecha_no_entendida", "fecha_recibida": fecha}
+        fecha = iso
 
         # Validaciones de sentido común -> dan material para casos de error.
         if fecha < self.hoy:
@@ -369,6 +473,7 @@ class Backend:
             "estado": "confirmada",
         }
         return {"ok": True, "localizador": loc, "recurso": asignado,
+                "fecha": fecha, "fecha_humana": fecha_humana(fecha, self.hoy),
                 "precio": self._precio(slug, duracion_min, num_personas)}
 
     def modificar_reserva(self, localizador, cambios):
@@ -376,8 +481,12 @@ class Backend:
         r = self.reservas.get(str(localizador).upper().strip())
         if not r or r["estado"] != "confirmada":
             return {"ok": False, "motivo": "no_encontrada"}
-        for campo in ("fecha", "hora_inicio", "duracion_min", "recurso"):
-            if campo in cambios and cambios[campo] is not None:
+        if cambios.get("fecha"):                       # el código resuelve la fecha
+            iso = resolver_fecha(cambios["fecha"], self.hoy)
+            if iso:
+                r["fecha"] = iso
+        for campo in ("hora_inicio", "duracion_min", "recurso"):
+            if cambios.get(campo) is not None:
                 r[campo] = cambios[campo]
         return {"ok": True, "localizador": r["localizador"],
                 "reserva": self._reserva_publica(r)}
@@ -476,13 +585,18 @@ def system_prompt(fecha_actual: str) -> str:
         "objetivo es ayudar a la gente a (1) reservar una instalación o (2) "
         "consultar, modificar o cancelar una reserva suya. Cualquier otra cosa, "
         "reconócela con amabilidad y reconduce SIEMPRE hacia eso.\n\n"
-        "Fecha actual: {fecha}. Resuelve las fechas relativas (\"hoy\", "
-        "\"mañana\", \"el sábado\") a partir de ella. El centro abre todos los "
-        "días de 8:00 a 22:00.\n\n"
+        "Fecha actual: {fecha}. El centro abre todos los días de 8:00 a 22:00.\n\n"
         "Instalaciones:\n{instalaciones}\n\n"
         "Cómo trabajas:\n"
         "- No te inventes la disponibilidad ni los datos de una reserva. Para "
         "saberlos, usa las herramientas.\n"
+        "- FECHAS: no las calcules tú. En el campo \"fecha\" escribe TAL CUAL lo "
+        "que diga el usuario (\"mañana\", \"dentro de dos días\", \"el sábado\", "
+        "\"el 4 de julio\"); el sistema te devolverá la fecha ya resuelta en "
+        "\"fecha_humana\", y esa es la que dices al usuario. Si la fecha es "
+        "ambigua (p. ej. \"el finde\"), pide que la concrete.\n"
+        "- DURACIÓN: respeta las duraciones válidas de cada instalación; si piden "
+        "uno no válido, ofréceles las opciones correctas.\n"
         "- Pide los datos que falten de uno en uno, con naturalidad.\n"
         "- Antes de crear, modificar o cancelar, resume y pide confirmación.\n"
         "- Responde en español, en frases breves y claras.\n\n"
