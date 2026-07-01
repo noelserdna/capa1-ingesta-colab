@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reservas · Polideportivo Las Encinas</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🏟️</span>
+      <div>
+        <h1>Polideportivo Las Encinas</h1>
+        <p>Asistente de reservas · <span id="modelBadge" class="badge">…</span></p>
+      </div>
+    </div>
+    <button id="resetBtn" class="ghost">Reiniciar</button>
+  </header>
+
+  <main class="layout">
+    <section class="chat-panel">
+      <div id="mensajes" class="mensajes"></div>
+
+      <div id="sugerencias" class="sugerencias">
+        <button class="chip">Quiero reservar una pista de pádel para mañana por la tarde</button>
+        <button class="chip">¿Hay tenis libre el sábado por la mañana?</button>
+        <button class="chip">Consulta mi reserva a nombre de Marta Ruiz</button>
+        <button class="chip">¿A qué hora abrís y cuánto cuesta el pádel?</button>
+      </div>
+
+      <form id="formulario" class="input-bar">
+        <textarea id="entrada" rows="1" placeholder="Escribe tu mensaje…" autocomplete="off"></textarea>
+        <button id="enviar" type="submit" aria-label="Enviar">➤</button>
+      </form>
+    </section>
+
+    <aside class="db-panel">
+      <h2>Base de datos <span class="sub">(backend simulado)</span></h2>
+      <p class="hoy">Hoy: <span id="hoy">—</span></p>
+      <div id="reservas" class="reservas"></div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
